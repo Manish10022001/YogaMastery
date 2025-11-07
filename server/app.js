@@ -1,0 +1,121 @@
+const express = require("express");
+const app = express();
+const dotenv = require("dotenv");
+dotenv.config();
+const port = process.env.PORT || 8000;
+const cors = require("cors");
+
+//middleware
+app.use(cors());
+app.use(express.json());
+
+const { MongoClient, ObjectId } = require("mongodb");
+const url = process.env.mongoUrl;
+const client = new MongoClient(url);
+
+async function connectDb() {
+  await client.connect();
+
+  //Create a database and collection
+  const database = client.db("yogamasterdb");
+  const userCollection = database.collection("users");
+  const classesCollection = database.collection("classes");
+  const cartCollection = database.collection("cart");
+  const paymentCollection = database.collection("payments");
+  const enrolledCollection = database.collection("enrolled");
+  const appliedCollection = database.collection("applied");
+
+  //classes routes
+  //1: to add new classes
+  app.post("/new-class", async (req, res) => {
+    const newClass = req.body; //want data from body
+    const result = await classesCollection.insertOne(newClass);
+    res.send(result);
+  });
+
+  //2: to get data based on approved clasees
+  app.get("/classes", async (req, res) => {
+    //we want to show data based on only approved courses
+    const query = { status: "approved" };
+    const result = await classesCollection.find(query).toArray();
+    res.send(result);
+  });
+
+  //3: get course by instructor email:
+  app.get("/classes/:email", async (req, res) => {
+    //get email through req.body.params
+    const email = req.params.email;
+    const query = {
+      instructorEmail: email,
+    };
+    const result = await classesCollection.find(query).toArray();
+    res.send(result);
+  });
+
+  //4: Manage classes get all classes
+  app.get("/classes-manage", async (req, res) => {
+    const result = await classesCollection.find().toArray();
+    res.send(result);
+  });
+
+  //5: update classes status and reason: using patch as we want to update specific field based on id
+  app.patch("/classes-status/:id", async (req, res) => {
+    const id = req.params.id;
+    //need to take status and reson from req.body
+    const status = req.body.status;
+    const reason = req.body.reason;
+    const query = {
+      _id: new ObjectId(id),
+    };
+    //to update  [ updateOne(condition, set:values change) ]
+    const result = await classesCollection.updateOne(query, {
+      $set: {
+        status: status,
+        reason: reason,
+      },
+    });
+    res.send(result);
+  });
+
+  //6 get approved classes
+  app.get("/approved-classes", async (req, res) => {
+    const query = { status: "approved" };
+    const result = await classesCollection.find(query).toArray();
+    res.send(result);
+  });
+
+  //7 get single class details
+  app.get("/class/:id", async (req, res) => {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await classesCollection.find(query).toArray();
+    res.send(result);
+  });
+
+  //update class details all data
+  app.put("/update-class/:id", async (req, res) => {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await classesCollection.updateOne(query, {
+      $set: {
+        name: req.body.name,
+        description: req.body.description,
+        price: req.body.price,
+        availableSeats: req.body.availableSeats,
+        videoLink: req.body.videolink,
+        status: "pending",
+      },
+    });
+    res.send(result);
+  });
+}
+
+connectDb();
+
+//Health Check
+app.get("/", (req, res) => {
+  res.send("Health Ok");
+});
+app.listen(port, () => {
+  console.log(`Running on port ${port}`);
+});
