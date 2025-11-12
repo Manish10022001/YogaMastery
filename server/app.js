@@ -118,6 +118,20 @@ async function connectDb() {
     res.send(result);
   });
 
+  //2.2 Get Cart Item by class id
+  app.get("/cart-item/:id", async (req, res) => {
+    const id = req.params.id;
+    // const email = req.body.email;
+    const query = {
+      classId: id,
+      // Email: email,
+    };
+    //mongodb shell we can directly write findOne({condition}{projection eg. classID:1}) but in mongodb driver we have to give projections:{projectionData}
+    const result = await cartCollection.findOne(query, {
+      projection: { classId: 1 },
+    });
+    res.send(result);
+  });
 
 }
 
