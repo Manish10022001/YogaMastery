@@ -108,6 +108,17 @@ async function connectDb() {
     });
     res.send(result);
   });
+
+  //CART ROUTES ............... IT WILL have id, name, classId, Email
+
+  //2.1 Add to Cart
+  app.post("/add-to-cart", async (req, res) => {
+    const newCartItem = req.body;
+    const result = await cartCollection.insertOne(newCartItem);
+    res.send(result);
+  });
+
+
 }
 
 connectDb();
