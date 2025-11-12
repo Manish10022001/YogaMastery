@@ -133,6 +133,31 @@ async function connectDb() {
     res.send(result);
   });
 
+  //2.3 cart info by using user email
+  app.get("/cart/:email", async (req, res) => {
+    const email = req.params.email;
+    const query = { userMail: email };
+    const carts = await cartCollection.find(query, {
+      projection: { classId: 1 },
+    });
+
+    //now we want to show show class details that are in user's cart so we
+    //first extract class ids and then get matching class info
+    const classIds = carts.map((cart) => new ObjectId(cart.classId));
+    const queryTwo = { _id: classIds }; //find all ids whose data is in the classIds list
+    const result = await classesCollection.find(queryTwo).toArray();
+    res.send(result);
+  });
+
+  //2.4 delete cart item
+  app.delete("/delete-cart-item/:id", async (req, res) => {
+    const id = req.params.id;
+    const query = {
+      classId: id,
+    };
+    const result = await cartCollection.deleteOne(query);
+    res.send(result);
+  });
 }
 
 connectDb();
