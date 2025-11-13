@@ -275,7 +275,56 @@ async function connectDb() {
       res.send({ total }); //passed in as object
     });
 
-    
+    //4. Enrollment Routes
+    //4.1 get enrolled classed based on total enrollment
+    app.get("/popular-classes", async (req, res) => {
+      const result = await classesCollection
+        .find()
+        .sort({ totalEnrolled: -1 })
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/popular-instructors", async (req, res) => {
+      const pipeline = [
+        {
+          $group: {
+            //group by id
+            _id: "$instructorEmail",
+            totalEnrolled: { $sum: "$totalEnrolled" },
+          },
+        },
+        {
+          //lookup is like join it lets us take values from another collection
+          $lookup: {
+            from: "users", // from another collection
+            localField: "_id",
+            foreignField: "email",
+            as: "instructor",
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            instructor: {
+              $arrayElemAt: ["$instructor", 0],
+            },
+            totalEnrolled: 1,
+          },
+        },
+        {
+          $sort: {
+            totalEnrolled: -1,
+          },
+        },
+        {
+          $limit: 8,
+        },
+      ];
+      const result = await classesCollection.aggregate(pipeline).toArray();
+      res.send(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
