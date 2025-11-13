@@ -285,7 +285,7 @@ async function connectDb() {
         .toArray();
       res.send(result);
     });
-
+    //4.2
     app.get("/popular-instructors", async (req, res) => {
       const pipeline = [
         {
@@ -325,6 +325,32 @@ async function connectDb() {
       const result = await classesCollection.aggregate(pipeline).toArray();
       res.send(result);
     });
+
+    //5 Admin stats
+    //5.1 get admin stats(approved classes, pending classes, instructor, totalClasses, totalEnrolled)
+    app.get("/admin-stats", async (req, res) => {
+      const approvedClasses = (
+        await classesCollection.find({ status: "approved" }).toArray()
+      ).length;
+      const pendingClasses = (
+        await classesCollection.find({ status: "pending" }).toArray()
+      ).length;
+      const instructors = (
+        await userCollection.find({ role: "instructor" }).toArray()
+      ).length;
+      const totalClasses = (await classesCollection.find().toArray()).length;
+      const totalEnrolled = (await enrolledCollection.find().toArray()).length;
+
+      const result = {
+        approvedClasses,
+        pendingClasses,
+        instructors,
+        totalClasses,
+        totalEnrolled,
+      };
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
