@@ -4,6 +4,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 const port = process.env.PORT || 8000;
 const cors = require("cors");
+//3.11 This is your test secret API key.
+const stripe = require("stripe")(process.env.PAYMENT_SECRET);
 
 //middleware
 app.use(cors());
@@ -174,6 +176,106 @@ async function connectDb() {
       res.send(result);
     });
 
+    //3 Payment Routes: for this need to create account on stripe first
+    //from strip docs, in payments section we get code to connect .
+    // https://docs.stripe.com/payments/quickstart
+    // install stripe (npm install --save stripe).
+    //from home page hit developers ->api keys ->
+
+    //3.2
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body; // as we take price
+      const amount = parseInt(price) * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "inr",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    //3.3: post info to DB
+    app.post("/payment-info", async (req, res) => {
+      const paymentInfo = req.body;
+      const classesId = req.body.classesId;
+      const userEmail = paymentInfo.userEmail;
+      //if classid is given trhoudh query
+      const singleClassId = req.query.classId;
+      let query;
+      //get query basedon condition: if classId given then give info of that but is not given then get all documets classIds in classId
+      if (singleClassId) {
+        query = { classId: singleClassId, userMail: userEmail };
+      } else {
+        query = { classId: { $in: classesId } };
+      }
+
+      //get all documents in the classesCollection whose _id is present in the classesId array.
+      //this is condition
+      const classesQuery = {
+        _id: { $in: classesId.map((id) => new ObjectId(id)) },
+      };
+      //get classes having ids
+      const classes = await classesCollection.find(classesQuery).toArray();
+
+      const newEnrolledData = {
+        userEmail: userEmail,
+        classesId: classesId.map((id) => new ObjectId(id)),
+        transactionId: paymentInfo.transactionId,
+      };
+
+      const updatedResult = await classesCollection.updateMany(
+        classesQuery,
+        {
+          $set: {
+            totalEnrolled:
+              classes.reduce(
+                (total, current) => total + current.totalEnrolled,
+                0
+              ) + 1 || 0,
+
+            availableSeats:
+              classes.reduce(
+                (total, current) => total + current.availableSeats,
+                0
+              ) - 1 || 0,
+          },
+        },
+        { upsert: true }
+      );
+
+      const enrolledResult = await enrolledCollection.insertOne(
+        newEnrolledData
+      );
+
+      const deletedResult = await cartCollection.deleteMany(query);
+
+      const paymentResult = await paymentCollection.insertOne(paymentInfo);
+      res.send({ paymentResult, deletedResult, enrolledResult, updatedResult });
+    });
+
+    //3.4 get payment history by email
+    app.get("/payment-history/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const result = await paymentCollection
+        .find(query)
+        .sort({ data: -1 })
+        .toArray(); //sort by date
+      res.send(result);
+    });
+
+    //3.4 get payment history length
+    app.get("/payment-history-length/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const total = await paymentCollection.countDocuments(query);
+      res.send({ total }); //passed in as object
+    });
+
+    
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
