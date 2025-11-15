@@ -42,6 +42,66 @@ async function connectDb() {
     const enrolledCollection = database.collection("enrolled");
     const appliedCollection = database.collection("applied");
 
+    //8 User Routes
+    //8.1 Get new users
+    app.post("/new-user", async (req, res) => {
+      const newUser = req.body;
+      const result = await userCollection.insertOne(newUser);
+      res.send(result);
+    });
+
+    //8.2 Get user details
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find({}).toArray();
+      res.send(result);
+    });
+
+    //8.3 Get user details by ID
+    app.get("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.findOne({ query }).toArray();
+      res.send(result);
+    });
+
+    //8.4 get user details by mail
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne({ query }).toArray();
+      res.send(result);
+    });
+
+    //8.5 Delete user by id
+    app.delete("/delete-user/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    //8.6 Update user by id
+    app.put("/update-user/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedUser = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true }; //because usert is true, so if no document match query mongodb creates new document
+      const updateDoc = {
+        $set: {
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          address: updatedUser.address,
+          about: updatedUser.about,
+          photoUrl: updatedUser.photoUrl,
+          skills: updatedUser.skills ? updatedUser.skills : null,
+          // phone:updatedUser.phone,
+        },
+      };
+
+      const result = await userCollection.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
     //classes routes
     //1: to add new classes
     app.post("/new-class", async (req, res) => {
@@ -401,8 +461,20 @@ async function connectDb() {
       res.send(result);
     });
 
+    //7 Applied for instructor
+    //7.1 apply for instructor
+    app.post("/assign-instructor", async (req, res) => {
+      const data = req.body;
+      const result = await appliedCollection.insertOne(data);
+      res.send(result);
+    });
 
-
+    //7.2 get applied instructor data by email
+    app.get("/applied-instructors/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await appliedCollection.findOne({ email });
+      res.send(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
