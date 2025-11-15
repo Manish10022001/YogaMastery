@@ -285,7 +285,7 @@ async function connectDb() {
         .toArray();
       res.send(result);
     });
-
+    //4.2
     app.get("/popular-instructors", async (req, res) => {
       const pipeline = [
         {
@@ -325,6 +325,84 @@ async function connectDb() {
       const result = await classesCollection.aggregate(pipeline).toArray();
       res.send(result);
     });
+
+    //5 Admin stats
+    //5.1 get admin stats(approved classes, pending classes, instructor, totalClasses, totalEnrolled)
+    app.get("/admin-stats", async (req, res) => {
+      const approvedClasses = (
+        await classesCollection.find({ status: "approved" }).toArray()
+      ).length;
+      const pendingClasses = (
+        await classesCollection.find({ status: "pending" }).toArray()
+      ).length;
+      const instructors = (
+        await userCollection.find({ role: "instructor" }).toArray()
+      ).length;
+      const totalClasses = (await classesCollection.find().toArray()).length;
+      const totalEnrolled = (await enrolledCollection.find().toArray()).length;
+
+      const result = {
+        approvedClasses,
+        pendingClasses,
+        instructors,
+        totalClasses,
+        totalEnrolled,
+      };
+      res.send(result);
+    });
+
+    //6 Instructors info
+    //6.1 get all instructors info
+    app.get("/instructors", async (req, res) => {
+      const result = await userCollection
+        .find({ role: "instructor" })
+        .toArray();
+      res.send(result);
+    });
+
+    //6.2 check if anyone enrolled in class
+    app.get("/enrolled-classes/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const pipeline = [
+        {
+          $match: query,
+        },
+        {
+          $lookup: {
+            from: "classes",
+            localField: "classesId",
+            foreignField: "_id",
+            as: "classes",
+          },
+        },
+        {
+          $unwind: "$classes",
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "classes.instructorEmail",
+            foreignField: "email",
+            as: "instructor",
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            instructor: {
+              $arrayElemAt: ["$instructor", 0],
+            },
+            classes: 1,
+          },
+        },
+      ];
+      const result = await enrolledCollection.aggregate(pipeline).toArray();
+      res.send(result);
+    });
+
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
