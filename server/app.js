@@ -401,8 +401,20 @@ async function connectDb() {
       res.send(result);
     });
 
+    //7 Applied for instructor
+    //7.1 apply for instructor
+    app.post("/assign-instructor", async (req, res) => {
+      const data = req.body;
+      const result = await appliedCollection.insertOne(data);
+      res.send(result);
+    });
 
-
+    //7.2 get applied instructor data by email
+    app.get("/applied-instructors/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await appliedCollection.findOne({ email });
+      res.send(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
