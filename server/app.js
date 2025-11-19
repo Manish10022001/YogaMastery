@@ -100,6 +100,37 @@ async function connectDb() {
       });
       res.send({ token });
     }); //this create jwt token to search jwt token and check it: we have to keep token in authorization and choose bearer token
+
+    //10 middleware to check if admin delete user or instructor is there or not
+    //need two middleware: two define middleweare need to pass thre parameters
+    //10.1 middleware for admin
+    async function verifyAdmin(req, res, next) {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      //if role = admin then go next else err
+      if (user.role === "admin") {
+        next();
+      } else {
+        res.status(401).send({ message: "Unauthorized access" });
+      }
+    }
+    //delte-user:id, put updat user, change-status, adminstats
+    //new-class post:, get('classes/:email), updated-classes:id,
+    //jwt: addtocart, cartitem, cart email, deletecart, payment-info, enroled-classes
+    //10.2 middleware for instructor
+    async function verifyInstructor(req, res, next) {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      //if role = instructor then go next else err
+      if (user.role === "instructor") {
+        next();
+      } else {
+        res.status(401).send({ message: "Unauthorized access" });
+      }
+    }
+
     //8 User Routes
     //8.1 Get new users
     app.post("/new-user", async (req, res) => {
@@ -131,7 +162,7 @@ async function connectDb() {
     });
 
     //8.5 Delete user by id
-    app.delete("/delete-user/:id", verifyJWT, async (req, res) => {
+    app.delete("/delete-user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
@@ -139,7 +170,7 @@ async function connectDb() {
     });
 
     //8.6 Update user by id
-    app.put("/update-user/:id", async (req, res) => {
+    app.put("/update-user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const updatedUser = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -162,7 +193,7 @@ async function connectDb() {
     });
     //classes routes
     //1: to add new classes
-    app.post("/new-class", async (req, res) => {
+    app.post("/new-class", verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body; //want data from body
       const result = await classesCollection.insertOne(newClass);
       res.send(result);
@@ -177,15 +208,20 @@ async function connectDb() {
     });
 
     //3: get course by instructor email:
-    app.get("/classes/:email", async (req, res) => {
-      //get email through req.body.params
-      const email = req.params.email;
-      const query = {
-        instructorEmail: email,
-      };
-      const result = await classesCollection.find(query).toArray();
-      res.send(result);
-    });
+    app.get(
+      "/classes/:email",
+      verifyJWT,
+      verifyInstructor,
+      async (req, res) => {
+        //get email through req.body.params
+        const email = req.params.email;
+        const query = {
+          instructorEmail: email,
+        };
+        const result = await classesCollection.find(query).toArray();
+        res.send(result);
+      }
+    );
 
     //4: Manage classes get all classes
     app.get("/classes-manage", async (req, res) => {
@@ -194,23 +230,28 @@ async function connectDb() {
     });
 
     //5: update classes status and reason: using patch as we want to update specific field based on id
-    app.patch("/classes-status/:id", async (req, res) => {
-      const id = req.params.id;
-      //need to take status and reson from req.body
-      const status = req.body.status;
-      const reason = req.body.reason;
-      const query = {
-        _id: new ObjectId(id),
-      };
-      //to update  [ updateOne(condition, set:values change) ]
-      const result = await classesCollection.updateOne(query, {
-        $set: {
-          status: status,
-          reason: reason,
-        },
-      });
-      res.send(result);
-    });
+    app.patch(
+      "/classes-status/:id",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        //need to take status and reson from req.body
+        const status = req.body.status;
+        const reason = req.body.reason;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        //to update  [ updateOne(condition, set:values change) ]
+        const result = await classesCollection.updateOne(query, {
+          $set: {
+            status: status,
+            reason: reason,
+          },
+        });
+        res.send(result);
+      }
+    );
 
     //6 get approved classes
     app.get("/approved-classes", async (req, res) => {
@@ -228,33 +269,38 @@ async function connectDb() {
     });
 
     //8 update class details all data
-    app.put("/update-class/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await classesCollection.updateOne(query, {
-        $set: {
-          name: req.body.name,
-          description: req.body.description,
-          price: req.body.price,
-          availableSeats: req.body.availableSeats,
-          videoLink: req.body.videolink,
-          status: "pending",
-        },
-      });
-      res.send(result);
-    });
+    app.put(
+      "/update-class/:id",
+      verifyJWT,
+      verifyInstructor,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await classesCollection.updateOne(query, {
+          $set: {
+            name: req.body.name,
+            description: req.body.description,
+            price: req.body.price,
+            availableSeats: req.body.availableSeats,
+            videoLink: req.body.videolink,
+            status: "pending",
+          },
+        });
+        res.send(result);
+      }
+    );
 
     //CART ROUTES ............... IT WILL have id, name, classId, Email
 
     //2.1 Add to Cart
-    app.post("/add-to-cart", async (req, res) => {
+    app.post("/add-to-cart", verifyJWT, async (req, res) => {
       const newCartItem = req.body;
       const result = await cartCollection.insertOne(newCartItem);
       res.send(result);
     });
 
     //2.2 Get Cart Item by class id
-    app.get("/cart-item/:id", async (req, res) => {
+    app.get("/cart-item/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       // const email = req.body.email;
       const query = {
@@ -269,7 +315,7 @@ async function connectDb() {
     });
 
     //2.3 cart info by using user email
-    app.get("/cart/:email", async (req, res) => {
+    app.get("/cart/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { userMail: email };
       const carts = await cartCollection.find(query, {
@@ -285,7 +331,7 @@ async function connectDb() {
     });
 
     //2.4 delete cart item
-    app.delete("/delete-cart-item/:id", async (req, res) => {
+    app.delete("/delete-cart-item/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = {
         classId: id,
@@ -316,7 +362,7 @@ async function connectDb() {
     });
 
     //3.3: post info to DB
-    app.post("/payment-info", async (req, res) => {
+    app.post("/payment-info", verifyJWT, async (req, res) => {
       const paymentInfo = req.body;
       const classesId = req.body.classesId;
       const userEmail = paymentInfo.userEmail;
@@ -446,7 +492,7 @@ async function connectDb() {
 
     //5 Admin stats
     //5.1 get admin stats(approved classes, pending classes, instructor, totalClasses, totalEnrolled)
-    app.get("/admin-stats", async (req, res) => {
+    app.get("/admin-stats", verifyJWT, verifyAdmin, async (req, res) => {
       const approvedClasses = (
         await classesCollection.find({ status: "approved" }).toArray()
       ).length;
@@ -479,7 +525,7 @@ async function connectDb() {
     });
 
     //6.2 check if anyone enrolled in class
-    app.get("/enrolled-classes/:email", async (req, res) => {
+    app.get("/enrolled-classes/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email };
       const pipeline = [
