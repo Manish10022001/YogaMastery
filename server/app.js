@@ -4,12 +4,33 @@ const dotenv = require("dotenv");
 dotenv.config();
 const port = process.env.PORT || 8000;
 const cors = require("cors");
+const jwt = require("jsonwebtoken"); //9.1 require jsonwebtoken
 //3.11 This is your test secret API key.
 const stripe = require("stripe")(process.env.PAYMENT_SECRET);
 
 //middleware
 app.use(cors());
 app.use(express.json());
+
+//9.3 Verify token
+const verifyJWT = (req, res, next) => {
+  //tokens are stored in headers so
+  const authorization = req.headers.authorization;
+  //if not authorized then return unauthorized
+  if (!authorization) {
+    return res.status(401).send({ message: "Invalid Authorization" });
+  }
+  //get token and do authorization, and bearer token comes with bearer key so need to split itand give index [1]
+  const token = authorization?.split(" ")[1];
+  //verify it
+  jwt.verify(token, process.env.ACCESS_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden access" }); //token is expired
+    }
+    req.decoded = decoded;
+    next();
+  }); // so now when applied this jwt token on any route it will first ask for authorization:
+};
 
 //this is for local mongodb
 const { ObjectId } = require("mongodb");
@@ -42,6 +63,43 @@ async function connectDb() {
     const enrolledCollection = database.collection("enrolled");
     const appliedCollection = database.collection("applied");
 
+    //add admin verification and extract the verification
+    //implement jwt token authentication -> go to jwt.io ->libraries->node js or just seach jwt token and explore npm package and get code npm i jsonwebtoken
+    //->copy and paste ->  require jwtwebtoken -> set jwt token 1. generate token to generate token first generate token then verify it
+    //write post request and define "/app/set-token" when hit this url, in this define
+    ////const user = req.body;
+    //then creat token const token = jwt.sign(user, then define access token): to generate token -> nodej crypto random bytes: copy require('crypt')radomebytes and paste in terminal and u get secret code copy it
+    //and past it in .env ACCESS_SECRET = "" AAND THEN ADD expiration: from node npm see ,{expiresIn:'24h'} aster one dat it will exprire and then send it res.send({token})
+    //after token is generate then again go to top
+    //->verify token: if u have they u must veryify
+    //const verifyJwt = (req,res, next)=>{
+    //to verifyin documentation we get .sign method,
+    //const authorization = req.headers.authorization; we get it from headers
+    //if not there then return res.status(401).send({message:"Invalid authorization"})
+    //then define const and get token and it will have to do authorization and will have to split it(' ').and then start index no.1 [1]
+    // then we have to verify it : jwt.verify(token, process.env.ASSESS_Secret,(err, decode)=>{
+    //   if error the return err and  and in msg if exprired token then ({message:'FOrbidden access'
+    //     req.decoded = decoded;
+    //     next(); call next
+    //   })
+    // })
+
+    //      }
+
+    //9: Admin verification
+    //Add Admin verificationJWT TOken Verification
+
+    //9.2 To generate token
+    app.post("/api/set-token", async (req, res) => {
+      const user = req.body;
+      //generate token : from npm documenttation ,
+      //here we define user and access token, to generate access token we give: 1.node  2.require('crypto').randomBytes(64).toString('hex') copy this and add in env
+      //and then expiration
+      const token = jwt.sign(user, process.env.ACCESS_SECRET, {
+        expiresIn: "24h",
+      });
+      res.send({ token });
+    }); //this create jwt token to search jwt token and check it: we have to keep token in authorization and choose bearer token
     //8 User Routes
     //8.1 Get new users
     app.post("/new-user", async (req, res) => {
@@ -60,20 +118,20 @@ async function connectDb() {
     app.get("/users/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await userCollection.findOne({ query }).toArray();
+      const result = await userCollection.findOne({ query });
       res.send(result);
     });
 
     //8.4 get user details by mail
-    app.get("/users/:email", async (req, res) => {
+    app.get("/users/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await userCollection.findOne({ query }).toArray();
+      const result = await userCollection.findOne({ query });
       res.send(result);
     });
 
     //8.5 Delete user by id
-    app.delete("/delete-user/:id", async (req, res) => {
+    app.delete("/delete-user/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
@@ -111,7 +169,7 @@ async function connectDb() {
     });
 
     //2: to get data based on approved clasees
-    app.get("/classes", async (req, res) => {
+    app.get("/classes", verifyJWT, async (req, res) => {
       //we want to show data based on only approved courses
       const query = { status: "approved" };
       const result = await classesCollection.find(query).toArray();
