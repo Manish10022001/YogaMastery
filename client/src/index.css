@@ -2,7 +2,7 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities"; */
 @import "tailwindcss";
-
+@config "../tailwind.config.js";
 
 body { 
     font-family: 'Manrope', sans-serif;

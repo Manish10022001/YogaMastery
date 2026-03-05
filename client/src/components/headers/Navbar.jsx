@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 //1.1: give nav links
 const navLinks = [
@@ -7,6 +7,7 @@ const navLinks = [
     {name:"Classes", route:"/classes"}
 ]
 const Navbar = () => {
+    const [navBg, setNavBg] = useState('bg-[#15151580]')
   return (
     <nav>
         <div className='lg:w-[95%] mx-auto sm:px-6 lg:px-6'>
@@ -28,15 +29,14 @@ const Navbar = () => {
                                 <li key={link.route}>
                                     <NavLink 
                                         to={link.route} 
-                                        className={({ isActive, isPending }) =>
-                                            isActive
-                                                ? "active"
-                                                : isPending
-                                                ? "pending"
-                                                : ""
+                                        className={({ isActive }) =>
+                                            `font-bold ${isActive ? 'text-secondary' :
+                                            `${navBg.includes('bg-transparent') ? 'text-white' : 'text-black dark:text-white'}`
+                                            } hover:text-secondary duration-300`
                                         }
                                     >
-                                    {link.name}</NavLink>
+                                        {link.name}
+                                    </NavLink>
                                 </li>
                             ))
                         }
