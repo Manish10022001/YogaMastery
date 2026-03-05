@@ -2,6 +2,8 @@ import React from 'react'
 import { createBrowserRouter } from 'react-router-dom';
 import MainLayout from '../layout/MainLayout';
 import Home from '../pages/Home';
+import Instructors from '../pages/Instructors/Instructors';
+import Classes from '../pages/Classes/Classes';
 const router = createBrowserRouter([
   {
     //site will have 2 root layout, without login and with login
@@ -11,6 +13,14 @@ const router = createBrowserRouter([
         {
             path:"/",
             element:<Home />
+        },
+        {
+          path:"/instructors",
+          element:<Instructors />
+        },
+        {
+          path:"/classes",
+          element:<Classes />
         }
     ]
   },
