@@ -1,18 +1,82 @@
-import React, { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import Switch from "@mui/material/Switch";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 //1.1: give nav links
 const navLinks = [
     {name:"Home", route:"/"},
     {name:"Instructor", route:"/instructors"},
     {name:"Classes", route:"/classes"}
 ]
+
+const theme = createTheme({
+    palette: {
+        primary: {
+            main: '#ff0000', // Set the primary color
+        },
+        secondary: {
+            main: '#00ff00', // Set the secondary color
+        },
+    },
+});
+
 const Navbar = () => {
-    const [navBg, setNavBg] = useState('bg-[#15151580]')
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isHome, setIsHome] = useState(false);
+    const [isLogin, setIsLogin] = useState(false);
+    const [scrollPosition, setScrollPosition] = useState(0);
+    const [isFixed, setIsFixed] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [navBg, setNavBg] = useState('bg-[#15151580]');
+
+    useEffect(()=>{
+        const darkClass = 'dark';
+        const root = window.document.documentElement;
+
+        if(isDarkMode){
+            root.classList.add(darkClass);
+        } else{
+            root.classList.remove(darkClass);
+        }
+    }, [isDarkMode]);
+
+    useEffect(()=>{
+        setIsHome(location.pathname === '/');
+        setIsLogin(location.pathname === '/login');
+        setIsFixed(location.pathname === '/register');
+    },[location]);
+
+    useEffect(()=>{
+        const handleScroll = () =>{
+            const currentPostion = window.pageYOffset;
+            setScrollPosition(currentPostion);
+        }
+        window.addEventListener('scroll', handleScroll);
+            return () =>{
+                window.removeEventListener('scroll', handleScroll);
+        };
+    }, []);
+
+    useEffect(()=>{
+        if(scrollPosition > 100){
+            if(isHome) {
+                setNavBg('bg-white backdrop-filter backdrop-blur-xl bg-opacity-0 dark:bg-black dark:text-white text-black');
+            }
+            else{
+                setNavBg('bg-white dark:bg-black dark:text-white text-black');
+            }
+        } else{
+            setNavBg(`dark:text-white ${isHome ? 'text-white bg-transparent' : 'text-black dark:text-white dark:bg-black'}`);
+            // setNavBg(`${isHome || location.pathname === '/' ? 'bg-transparent': 'bg-white dark:bg-black'} dark:text-white text-white`);
+        }
+    }, [scrollPosition]);
   return (
-    <nav>
+    <nav className={navBg}>
         <div className='lg:w-[95%] mx-auto sm:px-6 lg:px-6'>
             {/* logo */}
-            <div className='px-4 py-4 flex items-center justify-center'>
+            <div className='px-4 py-4 flex items-center justify-between'>
                 <h1 className='text-2xl inline-flex items-center font-bold gap-3'>
                     YogaMastery 
                     <img  src='/yoga-svgrepo-com.svg' alt='logo' className='w-9 h-9'/>
@@ -40,6 +104,26 @@ const Navbar = () => {
                                 </li>
                             ))
                         }
+
+                        {/* Based on users (login/register) */}
+                        <li>
+                            <NavLink to="/login" className={({ isActive }) =>
+                                            `font-bold ${isActive ? 'text-secondary' :
+                                            `${navBg.includes('bg-transparent') ? 'text-white' : 'text-black dark:text-white'}`
+                                            } hover:text-secondary duration-300`
+                                        }>
+                                Login
+                            </NavLink>
+                        </li>
+                        {/* color toggle */}
+                        <li>
+                            <ThemeProvider theme={theme}>
+                                <div className='flex flex-col justify-center items-center'>
+                                    <Switch onChange={()=> setIsDarkMode(!isDarkMode)}/>
+                                    <h1 className='text-[8px]'>Light/Dark</h1>
+                                </div>
+                            </ThemeProvider>
+                        </li>
                     </ul>
                 </div>
             </div>
